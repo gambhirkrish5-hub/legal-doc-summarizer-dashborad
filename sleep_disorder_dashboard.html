@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sleep Disorder Risk — Patient Cohort Dashboard</title>
+<style>
+  :root{
+    --bg:#0D1321;
+    --surface:#151E33;
+    --surface-2:#1B2540;
+    --border:#283152;
+    --text:#EAEEF8;
+    --text-muted:#8993B3;
+    --none:#5EC8A8;
+    --insomnia:#F0AD4E;
+    --apnea:#E2685A;
+    --accent:#7C9EFF;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;}
+  .wrap{max-width:1280px;margin:0 auto;padding:0 28px 64px;}
+
+  header.top{
+    padding:44px 28px 28px;
+    border-bottom:1px solid var(--border);
+    background:
+      radial-gradient(ellipse 900px 320px at 15% -20%, rgba(124,158,255,0.14), transparent 60%),
+      radial-gradient(ellipse 700px 300px at 90% -10%, rgba(240,173,78,0.10), transparent 60%);
+  }
+  header.top .inner{max-width:1280px;margin:0 auto;}
+  .eyebrow-row{display:flex;align-items:center;gap:10px;color:var(--text-muted);font-size:13px;margin-bottom:14px;}
+  .eyebrow-row .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);}
+  h1{
+    font-family:Georgia, 'Palatino Linotype', 'Iowan Old Style', serif;
+    font-weight:500;
+    font-size:clamp(28px,4vw,44px);
+    margin:0 0 10px;
+    letter-spacing:-0.01em;
+    max-width:820px;
+  }
+  header p.sub{
+    color:var(--text-muted);
+    font-size:15.5px;
+    max-width:640px;
+    margin:0;
+  }
+
+  /* Filter bar */
+  .filterbar{
+    position:sticky; top:0; z-index:20;
+    background:rgba(13,19,33,0.92);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--border);
+    padding:16px 28px;
+  }
+  .filterbar .inner{max-width:1280px;margin:0 auto;display:flex;flex-wrap:wrap;gap:22px;align-items:center;}
+  .filtergroup{display:flex;flex-direction:column;gap:7px;}
+  .filtergroup .label{font-size:11.5px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;}
+  .chip{
+    border:1px solid var(--border);
+    background:var(--surface);
+    color:var(--text-muted);
+    padding:6px 13px;
+    border-radius:20px;
+    font-size:13px;
+    cursor:pointer;
+    transition:all .15s ease;
+    user-select:none;
+    white-space:nowrap;
+  }
+  .chip:hover{border-color:var(--accent); color:var(--text);}
+  .chip.active{background:var(--accent); border-color:var(--accent); color:#0D1321; font-weight:500;}
+  .chip.active.none-c{background:var(--none); border-color:var(--none);}
+  .chip.active.insomnia-c{background:var(--insomnia); border-color:var(--insomnia);}
+  .chip.active.apnea-c{background:var(--apnea); border-color:var(--apnea);}
+
+  .agerange{display:flex; align-items:center; gap:10px;}
+  .agerange input[type=range]{width:120px; accent-color:var(--accent);}
+  .agerange .val{font-size:13px; color:var(--text); min-width:64px;}
+
+  .resetbtn{
+    margin-left:auto;
+    background:transparent;
+    border:1px solid var(--border);
+    color:var(--text-muted);
+    padding:7px 14px;
+    border-radius:20px;
+    font-size:13px;
+    cursor:pointer;
+  }
+  .resetbtn:hover{color:var(--text); border-color:var(--accent);}
+
+  /* KPI row */
+  .kpis{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:14px;
+    margin:32px 0;
+  }
+  .kpi{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:20px 22px;
+  }
+  .kpi .label{font-size:12.5px; color:var(--text-muted); margin-bottom:10px;}
+  .kpi .value{font-family:'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size:30px; font-weight:600; letter-spacing:-0.01em;}
+  .kpi .sub{font-size:12px; color:var(--text-muted); margin-top:6px;}
+
+  section.block{margin:48px 0;}
+  .blockhead{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:18px; gap:16px; flex-wrap:wrap;}
+  .blockhead h2{
+    font-family:Georgia, 'Palatino Linotype', 'Iowan Old Style', serif;
+    font-weight:500;
+    font-size:22px;
+    margin:0;
+  }
+  .blockhead .note{font-size:13px; color:var(--text-muted); max-width:420px; text-align:right;}
+
+  .grid2{display:grid; grid-template-columns:1.2fr 1fr; gap:16px;}
+  .grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:16px;}
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:22px;
+  }
+  .card h3{
+    font-size:14px;
+    font-weight:500;
+    margin:0 0 4px;
+    color:var(--text);
+  }
+  .card .desc{font-size:12.5px; color:var(--text-muted); margin-bottom:14px;}
+  .card canvas{max-width:100%;}
+
+  .legend-row{display:flex; gap:16px; flex-wrap:wrap; margin-top:10px;}
+  .legend-item{display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-muted);}
+  .legend-swatch{width:10px; height:10px; border-radius:3px;}
+
+  .metric-strip{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:16px;}
+  .metric-strip .m{
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:16px 18px;
+  }
+  .metric-strip .m .mv{font-family:"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size:22px; font-weight:600;}
+  .metric-strip .m .ml{font-size:12px; color:var(--text-muted); margin-top:4px;}
+
+  .cm-table{width:100%; border-collapse:collapse; font-size:13px;}
+  .cm-table th, .cm-table td{padding:9px 10px; text-align:center; border:1px solid var(--border);}
+  .cm-table th{color:var(--text-muted); font-weight:500; font-size:11.5px; text-transform:uppercase; letter-spacing:0.03em;}
+  .cm-table td.diag{font-weight:600;}
+
+  .conclusions{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:26px 28px;
+  }
+  .conclusions ul{margin:10px 0 0; padding-left:20px;}
+  .conclusions li{margin-bottom:8px; font-size:14px; color:var(--text-muted);}
+  .conclusions li strong{color:var(--text); font-weight:500;}
+  .caveat{
+    margin-top:18px;
+    padding-top:16px;
+    border-top:1px solid var(--border);
+    font-size:12.5px;
+    color:var(--text-muted);
+  }
+
+  footer{
+    text-align:center;
+    font-size:12px;
+    color:var(--text-muted);
+    padding:30px 0 10px;
+  }
+
+  @media (max-width: 880px){
+    .kpis{grid-template-columns:repeat(2,1fr);}
+    .grid2, .grid3{grid-template-columns:1fr;}
+    .metric-strip{grid-template-columns:repeat(2,1fr);}
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="inner">
+    <div class="eyebrow-row"><span class="dot"></span> Patient cohort · 374 adults · lifestyle &amp; clinical screening</div>
+    <h1>What sleep, stress and blood pressure reveal about disorder risk</h1>
+    <p class="sub">An interactive read of the sleep health dataset behind the notebook: who develops insomnia or sleep apnea, which signals separate them, and how well a tuned Random Forest screens for it.</p>
+  </div>
+</header>
+
+<div class="filterbar">
+  <div class="inner">
+    <div class="filtergroup">
+      <div class="label">Disorder</div>
+      <div class="chips" id="chips-disorder"></div>
+    </div>
+    <div class="filtergroup">
+      <div class="label">Gender</div>
+      <div class="chips" id="chips-gender"></div>
+    </div>
+    <div class="filtergroup">
+      <div class="label">BMI category</div>
+      <div class="chips" id="chips-bmi"></div>
+    </div>
+    <div class="filtergroup">
+      <div class="label">Age range</div>
+      <div class="agerange">
+        <input type="range" id="age-min" min="27" max="59" value="27">
+        <input type="range" id="age-max" min="27" max="59" value="59">
+        <span class="val" id="age-val">27–59</span>
+      </div>
+    </div>
+    <button class="resetbtn" id="reset-btn">Reset filters</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="kpis" id="kpi-row"></div>
+
+  <section class="block">
+    <div class="blockhead">
+      <h2>Who's in the filtered cohort</h2>
+      <div class="note">Every chart below responds to the filters above.</div>
+    </div>
+    <div class="grid3">
+      <div class="card">
+        <h3>Disorder distribution</h3>
+        <div class="desc">Share of the filtered cohort by diagnosis</div>
+        <canvas id="chart-donut" height="220"></canvas>
+        <div class="legend-row" id="legend-donut"></div>
+      </div>
+      <div class="card">
+        <h3>BMI category vs disorder</h3>
+        <div class="desc">Patient count stacked by diagnosis</div>
+        <canvas id="chart-bmi" height="220"></canvas>
+        <div class="legend-row" id="legend-bmi"></div>
+      </div>
+      <div class="card">
+        <h3>Age distribution</h3>
+        <div class="desc">Grouped in 5-year bands, stacked by diagnosis</div>
+        <canvas id="chart-age" height="220"></canvas>
+        <div class="legend-row" id="legend-age"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="blockhead">
+      <h2>Blood pressure separates the groups cleanly</h2>
+      <div class="note">Each dot is one patient — hover for exact readings.</div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h3>Systolic vs diastolic blood pressure</h3>
+        <div class="desc">Clear clustering by diagnosis — the strongest single signal in the dataset</div>
+        <canvas id="chart-bp" height="280"></canvas>
+        <div class="legend-row" id="legend-bp"></div>
+      </div>
+      <div class="card">
+        <h3>Occupation breakdown</h3>
+        <div class="desc">Top occupations in the filtered cohort, stacked by diagnosis</div>
+        <canvas id="chart-occ" height="280"></canvas>
+        <div class="legend-row" id="legend-occ"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="blockhead">
+      <h2>Lifestyle factors</h2>
+      <div class="note">Sleep quality and duration track insomnia more than apnea.</div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h3>Sleep duration vs quality of sleep</h3>
+        <div class="desc">Each dot is one patient, sized by stress level</div>
+        <canvas id="chart-sleep" height="280"></canvas>
+        <div class="legend-row" id="legend-sleep"></div>
+      </div>
+      <div class="card">
+        <h3>Physical activity vs stress level</h3>
+        <div class="desc">Average by occupation, filtered cohort</div>
+        <canvas id="chart-activity" height="280"></canvas>
+        <div class="legend-row" id="legend-activity"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="blockhead">
+      <h2>Strength of association with sleep disorder</h2>
+      <div class="note">Kruskal–Wallis H statistic across the full cohort — not affected by filters above.</div>
+    </div>
+    <div class="card">
+      <canvas id="chart-assoc" height="180"></canvas>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="blockhead">
+      <h2>Model performance — tuned Random Forest</h2>
+      <div class="note">Held-out 20% test set (n=75). Reflects the trained model from the notebook, not the live filters.</div>
+    </div>
+    <div class="metric-strip">
+      <div class="m"><div class="mv">93.3%</div><div class="ml">Accuracy</div></div>
+      <div class="m"><div class="mv">0.893</div><div class="ml">Macro F1</div></div>
+      <div class="m"><div class="mv">0.995</div><div class="ml">Macro ROC-AUC</div></div>
+      <div class="m"><div class="mv">0.870</div><div class="ml">CV F1 (5-fold)</div></div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h3>Confusion matrix</h3>
+        <div class="desc">Rows = true label, columns = predicted label</div>
+        <table class="cm-table" id="cm-table"></table>
+      </div>
+      <div class="card">
+        <h3>Top feature importances</h3>
+        <div class="desc">Random Forest, top 10 of 22 engineered features</div>
+        <canvas id="chart-importance" height="260"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="blockhead">
+      <h2>Conclusions &amp; recommendations</h2>
+    </div>
+    <div class="conclusions">
+      <ul>
+        <li><strong>Blood pressure and BMI are the strongest signals</strong> — both in feature importance and in standalone statistical tests (Kruskal–Wallis H ≈ 205–212, far above any other variable).</li>
+        <li><strong>Age and occupation</strong> add meaningful signal, though occupation is best read as a proxy for lifestyle and shift patterns rather than a causal driver.</li>
+        <li><strong>Sleep duration and quality</strong> are most useful for identifying insomnia specifically, but don't reliably separate sleep apnea from healthy sleepers.</li>
+        <li><strong>Physical activity and stress</strong> are statistically significant but the weakest signals — physical activity's link to sleep apnea is confounded by occupation (e.g. nurses).</li>
+      </ul>
+      <div class="caveat">
+        Sample size is small (374 patients) — validate on a larger external cohort before clinical use. This model should screen and triage, not diagnose; flagged patients should be referred for a formal sleep study (polysomnography). Retrain periodically and monitor for demographic drift given the current occupation skew (nurse, doctor, engineer over-represented).
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer>Built from the Sleep Disorder Analysis notebook · 374-patient cohort · Random Forest, tuned via grid search</footer>
+
+<script>
+const RAW = [{"Gender": "Male", "Age": 27, "Occupation": "Software Engineer", "Sleep_Duration": 6.1, "Quality_of_Sleep": 6, "Physical_Activity_Level": 42, "Stress_Level": 6, "BMI_Category": "Overweight", "Heart_Rate": 77, "Daily_Steps": 4200, "Sleep_Disorder": "None", "Systolic_BP": 126, "Diastolic_BP": 83}, {"Gender": "Male", "Age": 28, "Occupation": "Doctor", "Sleep_Duration": 6.2, "Quality_of_Sleep": 6, "Physical_Activity_Level": 60, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 28, "Occupation": "Doctor", "Sleep_Duration": 6.2, "Quality_of_Sleep": 6, "Physical_Activity_Level": 60, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 28, "Occupation": "Sales Representative", "Sleep_Duration": 5.9, "Quality_of_Sleep": 4, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Obese", "Heart_Rate": 85, "Daily_Steps": 3000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 90}, {"Gender": "Male", "Age": 28, "Occupation": "Sales Representative", "Sleep_Duration": 5.9, "Quality_of_Sleep": 4, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Obese", "Heart_Rate": 85, "Daily_Steps": 3000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 90}, {"Gender": "Male", "Age": 28, "Occupation": "Software Engineer", "Sleep_Duration": 5.9, "Quality_of_Sleep": 4, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Obese", "Heart_Rate": 85, "Daily_Steps": 3000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 140, "Diastolic_BP": 90}, {"Gender": "Male", "Age": 29, "Occupation": "Teacher", "Sleep_Duration": 6.3, "Quality_of_Sleep": 6, "Physical_Activity_Level": 40, "Stress_Level": 7, "BMI_Category": "Obese", "Heart_Rate": 82, "Daily_Steps": 3500, "Sleep_Disorder": "Insomnia", "Systolic_BP": 140, "Diastolic_BP": 90}, {"Gender": "Male", "Age": 29, "Occupation": "Doctor", "Sleep_Duration": 7.8, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 29, "Occupation": "Doctor", "Sleep_Duration": 7.8, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 29, "Occupation": "Doctor", "Sleep_Duration": 7.8, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 29, "Occupation": "Doctor", "Sleep_Duration": 6.1, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 29, "Occupation": "Doctor", "Sleep_Duration": 7.8, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 29, "Occupation": "Doctor", "Sleep_Duration": 6.1, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 29, "Occupation": "Doctor", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 29, "Occupation": "Doctor", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 29, "Occupation": "Doctor", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 29, "Occupation": "Nurse", "Sleep_Duration": 6.5, "Quality_of_Sleep": 5, "Physical_Activity_Level": 40, "Stress_Level": 7, "BMI_Category": "Normal", "Heart_Rate": 80, "Daily_Steps": 4000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 132, "Diastolic_BP": 87}, {"Gender": "Male", "Age": 29, "Occupation": "Doctor", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 29, "Occupation": "Nurse", "Sleep_Duration": 6.5, "Quality_of_Sleep": 5, "Physical_Activity_Level": 40, "Stress_Level": 7, "BMI_Category": "Normal", "Heart_Rate": 80, "Daily_Steps": 4000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 132, "Diastolic_BP": 87}, {"Gender": "Male", "Age": 30, "Occupation": "Doctor", "Sleep_Duration": 7.6, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 30, "Occupation": "Doctor", "Sleep_Duration": 7.7, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 30, "Occupation": "Doctor", "Sleep_Duration": 7.7, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 30, "Occupation": "Doctor", "Sleep_Duration": 7.7, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 30, "Occupation": "Doctor", "Sleep_Duration": 7.7, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 30, "Occupation": "Doctor", "Sleep_Duration": 7.8, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 30, "Occupation": "Doctor", "Sleep_Duration": 7.9, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 30, "Occupation": "Doctor", "Sleep_Duration": 7.8, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 30, "Occupation": "Doctor", "Sleep_Duration": 7.9, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 30, "Occupation": "Doctor", "Sleep_Duration": 7.9, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 30, "Occupation": "Doctor", "Sleep_Duration": 7.9, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 30, "Occupation": "Nurse", "Sleep_Duration": 6.4, "Quality_of_Sleep": 5, "Physical_Activity_Level": 35, "Stress_Level": 7, "BMI_Category": "Normal", "Heart_Rate": 78, "Daily_Steps": 4100, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 130, "Diastolic_BP": 86}, {"Gender": "Female", "Age": 30, "Occupation": "Nurse", "Sleep_Duration": 6.4, "Quality_of_Sleep": 5, "Physical_Activity_Level": 35, "Stress_Level": 7, "BMI_Category": "Normal", "Heart_Rate": 78, "Daily_Steps": 4100, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 86}, {"Gender": "Female", "Age": 31, "Occupation": "Nurse", "Sleep_Duration": 7.9, "Quality_of_Sleep": 8, "Physical_Activity_Level": 75, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 69, "Daily_Steps": 6800, "Sleep_Disorder": "None", "Systolic_BP": 117, "Diastolic_BP": 76}, {"Gender": "Male", "Age": 31, "Occupation": "Doctor", "Sleep_Duration": 6.1, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 31, "Occupation": "Doctor", "Sleep_Duration": 7.7, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 31, "Occupation": "Doctor", "Sleep_Duration": 6.1, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 31, "Occupation": "Doctor", "Sleep_Duration": 6.1, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 31, "Occupation": "Doctor", "Sleep_Duration": 7.6, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 31, "Occupation": "Doctor", "Sleep_Duration": 7.6, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 31, "Occupation": "Doctor", "Sleep_Duration": 7.6, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 31, "Occupation": "Doctor", "Sleep_Duration": 7.7, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 31, "Occupation": "Doctor", "Sleep_Duration": 7.7, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 31, "Occupation": "Doctor", "Sleep_Duration": 7.7, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 31, "Occupation": "Doctor", "Sleep_Duration": 7.8, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 31, "Occupation": "Doctor", "Sleep_Duration": 7.7, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 31, "Occupation": "Doctor", "Sleep_Duration": 7.8, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 31, "Occupation": "Doctor", "Sleep_Duration": 7.7, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 31, "Occupation": "Doctor", "Sleep_Duration": 7.8, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 31, "Occupation": "Doctor", "Sleep_Duration": 7.7, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 31, "Occupation": "Doctor", "Sleep_Duration": 7.7, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 32, "Occupation": "Engineer", "Sleep_Duration": 7.5, "Quality_of_Sleep": 8, "Physical_Activity_Level": 45, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 32, "Occupation": "Engineer", "Sleep_Duration": 7.5, "Quality_of_Sleep": 8, "Physical_Activity_Level": 45, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 32, "Occupation": "Doctor", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 32, "Occupation": "Doctor", "Sleep_Duration": 7.6, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 32, "Occupation": "Doctor", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 32, "Occupation": "Doctor", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 32, "Occupation": "Doctor", "Sleep_Duration": 7.7, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 32, "Occupation": "Doctor", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 32, "Occupation": "Doctor", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 32, "Occupation": "Doctor", "Sleep_Duration": 7.7, "Quality_of_Sleep": 7, "Physical_Activity_Level": 75, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 32, "Occupation": "Doctor", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 32, "Occupation": "Doctor", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 32, "Occupation": "Doctor", "Sleep_Duration": 6.2, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 32, "Occupation": "Doctor", "Sleep_Duration": 6.2, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 32, "Occupation": "Doctor", "Sleep_Duration": 6.2, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 32, "Occupation": "Doctor", "Sleep_Duration": 6.2, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 32, "Occupation": "Accountant", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 50, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 118, "Diastolic_BP": 76}, {"Gender": "Male", "Age": 33, "Occupation": "Doctor", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 33, "Occupation": "Scientist", "Sleep_Duration": 6.2, "Quality_of_Sleep": 6, "Physical_Activity_Level": 50, "Stress_Level": 6, "BMI_Category": "Overweight", "Heart_Rate": 76, "Daily_Steps": 5500, "Sleep_Disorder": "None", "Systolic_BP": 128, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 33, "Occupation": "Scientist", "Sleep_Duration": 6.2, "Quality_of_Sleep": 6, "Physical_Activity_Level": 50, "Stress_Level": 6, "BMI_Category": "Overweight", "Heart_Rate": 76, "Daily_Steps": 5500, "Sleep_Disorder": "None", "Systolic_BP": 128, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 33, "Occupation": "Doctor", "Sleep_Duration": 6.1, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 33, "Occupation": "Doctor", "Sleep_Duration": 6.1, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 33, "Occupation": "Doctor", "Sleep_Duration": 6.1, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 33, "Occupation": "Doctor", "Sleep_Duration": 6.1, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 33, "Occupation": "Doctor", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 33, "Occupation": "Doctor", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 33, "Occupation": "Doctor", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 33, "Occupation": "Doctor", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 33, "Occupation": "Doctor", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 33, "Occupation": "Doctor", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 30, "Stress_Level": 8, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 34, "Occupation": "Scientist", "Sleep_Duration": 5.8, "Quality_of_Sleep": 4, "Physical_Activity_Level": 32, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 81, "Daily_Steps": 5200, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 131, "Diastolic_BP": 86}, {"Gender": "Female", "Age": 34, "Occupation": "Scientist", "Sleep_Duration": 5.8, "Quality_of_Sleep": 4, "Physical_Activity_Level": 32, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 81, "Daily_Steps": 5200, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 131, "Diastolic_BP": 86}, {"Gender": "Male", "Age": 35, "Occupation": "Teacher", "Sleep_Duration": 6.7, "Quality_of_Sleep": 7, "Physical_Activity_Level": 40, "Stress_Level": 5, "BMI_Category": "Overweight", "Heart_Rate": 70, "Daily_Steps": 5600, "Sleep_Disorder": "None", "Systolic_BP": 128, "Diastolic_BP": 84}, {"Gender": "Male", "Age": 35, "Occupation": "Teacher", "Sleep_Duration": 6.7, "Quality_of_Sleep": 7, "Physical_Activity_Level": 40, "Stress_Level": 5, "BMI_Category": "Overweight", "Heart_Rate": 70, "Daily_Steps": 5600, "Sleep_Disorder": "None", "Systolic_BP": 128, "Diastolic_BP": 84}, {"Gender": "Male", "Age": 35, "Occupation": "Software Engineer", "Sleep_Duration": 7.5, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 35, "Occupation": "Accountant", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Male", "Age": 35, "Occupation": "Engineer", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 35, "Occupation": "Engineer", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 35, "Occupation": "Engineer", "Sleep_Duration": 7.3, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 35, "Occupation": "Engineer", "Sleep_Duration": 7.3, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 35, "Occupation": "Engineer", "Sleep_Duration": 7.3, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 35, "Occupation": "Engineer", "Sleep_Duration": 7.3, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 35, "Occupation": "Software Engineer", "Sleep_Duration": 7.5, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 35, "Occupation": "Lawyer", "Sleep_Duration": 7.4, "Quality_of_Sleep": 7, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Obese", "Heart_Rate": 84, "Daily_Steps": 3300, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 135, "Diastolic_BP": 88}, {"Gender": "Female", "Age": 36, "Occupation": "Accountant", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Female", "Age": 36, "Occupation": "Accountant", "Sleep_Duration": 7.1, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Female", "Age": 36, "Occupation": "Accountant", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Female", "Age": 36, "Occupation": "Accountant", "Sleep_Duration": 7.1, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Female", "Age": 36, "Occupation": "Teacher", "Sleep_Duration": 7.1, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Female", "Age": 36, "Occupation": "Teacher", "Sleep_Duration": 7.1, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Female", "Age": 36, "Occupation": "Teacher", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Female", "Age": 36, "Occupation": "Teacher", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Female", "Age": 36, "Occupation": "Teacher", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Male", "Age": 36, "Occupation": "Teacher", "Sleep_Duration": 6.6, "Quality_of_Sleep": 5, "Physical_Activity_Level": 35, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 74, "Daily_Steps": 4800, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 129, "Diastolic_BP": 84}, {"Gender": "Female", "Age": 36, "Occupation": "Teacher", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Male", "Age": 36, "Occupation": "Teacher", "Sleep_Duration": 6.6, "Quality_of_Sleep": 5, "Physical_Activity_Level": 35, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 74, "Daily_Steps": 4800, "Sleep_Disorder": "Insomnia", "Systolic_BP": 129, "Diastolic_BP": 84}, {"Gender": "Female", "Age": 37, "Occupation": "Nurse", "Sleep_Duration": 6.1, "Quality_of_Sleep": 6, "Physical_Activity_Level": 42, "Stress_Level": 6, "BMI_Category": "Overweight", "Heart_Rate": 77, "Daily_Steps": 4200, "Sleep_Disorder": "None", "Systolic_BP": 126, "Diastolic_BP": 83}, {"Gender": "Male", "Age": 37, "Occupation": "Engineer", "Sleep_Duration": 7.8, "Quality_of_Sleep": 8, "Physical_Activity_Level": 70, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 37, "Occupation": "Engineer", "Sleep_Duration": 7.8, "Quality_of_Sleep": 8, "Physical_Activity_Level": 70, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 37, "Occupation": "Lawyer", "Sleep_Duration": 7.4, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 37, "Occupation": "Accountant", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Male", "Age": 37, "Occupation": "Lawyer", "Sleep_Duration": 7.4, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 37, "Occupation": "Accountant", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Male", "Age": 37, "Occupation": "Lawyer", "Sleep_Duration": 7.4, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 37, "Occupation": "Accountant", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Female", "Age": 37, "Occupation": "Accountant", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Female", "Age": 37, "Occupation": "Accountant", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Female", "Age": 37, "Occupation": "Accountant", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Female", "Age": 37, "Occupation": "Accountant", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Female", "Age": 37, "Occupation": "Accountant", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Female", "Age": 37, "Occupation": "Accountant", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Female", "Age": 37, "Occupation": "Accountant", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Female", "Age": 37, "Occupation": "Accountant", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Female", "Age": 37, "Occupation": "Accountant", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Female", "Age": 37, "Occupation": "Accountant", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Female", "Age": 37, "Occupation": "Nurse", "Sleep_Duration": 7.5, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 120, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 38, "Occupation": "Lawyer", "Sleep_Duration": 7.3, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 38, "Occupation": "Accountant", "Sleep_Duration": 7.1, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Male", "Age": 38, "Occupation": "Lawyer", "Sleep_Duration": 7.3, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 38, "Occupation": "Lawyer", "Sleep_Duration": 7.3, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 38, "Occupation": "Accountant", "Sleep_Duration": 7.1, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Male", "Age": 38, "Occupation": "Lawyer", "Sleep_Duration": 7.3, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 38, "Occupation": "Lawyer", "Sleep_Duration": 7.3, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 38, "Occupation": "Accountant", "Sleep_Duration": 7.1, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Male", "Age": 38, "Occupation": "Lawyer", "Sleep_Duration": 7.3, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 38, "Occupation": "Lawyer", "Sleep_Duration": 7.3, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 38, "Occupation": "Accountant", "Sleep_Duration": 7.1, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Male", "Age": 38, "Occupation": "Lawyer", "Sleep_Duration": 7.1, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 38, "Occupation": "Accountant", "Sleep_Duration": 7.1, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Male", "Age": 38, "Occupation": "Lawyer", "Sleep_Duration": 7.1, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 38, "Occupation": "Accountant", "Sleep_Duration": 7.1, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Male", "Age": 38, "Occupation": "Lawyer", "Sleep_Duration": 7.1, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 38, "Occupation": "Accountant", "Sleep_Duration": 7.1, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Female", "Age": 38, "Occupation": "Accountant", "Sleep_Duration": 7.1, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 4, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 75}, {"Gender": "Male", "Age": 38, "Occupation": "Lawyer", "Sleep_Duration": 7.1, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 38, "Occupation": "Lawyer", "Sleep_Duration": 7.4, "Quality_of_Sleep": 7, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Obese", "Heart_Rate": 84, "Daily_Steps": 3300, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 135, "Diastolic_BP": 88}, {"Gender": "Male", "Age": 39, "Occupation": "Lawyer", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 39, "Occupation": "Engineer", "Sleep_Duration": 6.5, "Quality_of_Sleep": 5, "Physical_Activity_Level": 40, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 80, "Daily_Steps": 4000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 132, "Diastolic_BP": 87}, {"Gender": "Female", "Age": 39, "Occupation": "Lawyer", "Sleep_Duration": 6.9, "Quality_of_Sleep": 7, "Physical_Activity_Level": 50, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 75, "Daily_Steps": 5500, "Sleep_Disorder": "None", "Systolic_BP": 128, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 39, "Occupation": "Accountant", "Sleep_Duration": 8.0, "Quality_of_Sleep": 9, "Physical_Activity_Level": 80, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 67, "Daily_Steps": 7500, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 78}, {"Gender": "Female", "Age": 39, "Occupation": "Accountant", "Sleep_Duration": 8.0, "Quality_of_Sleep": 9, "Physical_Activity_Level": 80, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 67, "Daily_Steps": 7500, "Sleep_Disorder": "None", "Systolic_BP": 115, "Diastolic_BP": 78}, {"Gender": "Male", "Age": 39, "Occupation": "Lawyer", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 39, "Occupation": "Lawyer", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 39, "Occupation": "Lawyer", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 39, "Occupation": "Lawyer", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 39, "Occupation": "Lawyer", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 39, "Occupation": "Lawyer", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 39, "Occupation": "Lawyer", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 39, "Occupation": "Lawyer", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 39, "Occupation": "Lawyer", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 39, "Occupation": "Lawyer", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 60, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 40, "Occupation": "Accountant", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 55, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 73, "Daily_Steps": 7300, "Sleep_Disorder": "None", "Systolic_BP": 119, "Diastolic_BP": 77}, {"Gender": "Female", "Age": 40, "Occupation": "Accountant", "Sleep_Duration": 7.2, "Quality_of_Sleep": 8, "Physical_Activity_Level": 55, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 73, "Daily_Steps": 7300, "Sleep_Disorder": "None", "Systolic_BP": 119, "Diastolic_BP": 77}, {"Gender": "Male", "Age": 40, "Occupation": "Lawyer", "Sleep_Duration": 7.9, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 40, "Occupation": "Lawyer", "Sleep_Duration": 7.9, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 68, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 41, "Occupation": "Lawyer", "Sleep_Duration": 7.6, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 41, "Occupation": "Engineer", "Sleep_Duration": 7.3, "Quality_of_Sleep": 8, "Physical_Activity_Level": 70, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 6200, "Sleep_Disorder": "None", "Systolic_BP": 121, "Diastolic_BP": 79}, {"Gender": "Male", "Age": 41, "Occupation": "Lawyer", "Sleep_Duration": 7.1, "Quality_of_Sleep": 7, "Physical_Activity_Level": 55, "Stress_Level": 6, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 82}, {"Gender": "Male", "Age": 41, "Occupation": "Lawyer", "Sleep_Duration": 7.1, "Quality_of_Sleep": 7, "Physical_Activity_Level": 55, "Stress_Level": 6, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 82}, {"Gender": "Male", "Age": 41, "Occupation": "Lawyer", "Sleep_Duration": 7.7, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 41, "Occupation": "Lawyer", "Sleep_Duration": 7.7, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 41, "Occupation": "Lawyer", "Sleep_Duration": 7.7, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 41, "Occupation": "Lawyer", "Sleep_Duration": 7.7, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 41, "Occupation": "Lawyer", "Sleep_Duration": 7.7, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 41, "Occupation": "Lawyer", "Sleep_Duration": 7.6, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 41, "Occupation": "Lawyer", "Sleep_Duration": 7.6, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 41, "Occupation": "Lawyer", "Sleep_Duration": 7.6, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 42, "Occupation": "Salesperson", "Sleep_Duration": 6.5, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 42, "Occupation": "Lawyer", "Sleep_Duration": 7.8, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 42, "Occupation": "Lawyer", "Sleep_Duration": 7.8, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 42, "Occupation": "Lawyer", "Sleep_Duration": 7.8, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 42, "Occupation": "Lawyer", "Sleep_Duration": 7.8, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 42, "Occupation": "Lawyer", "Sleep_Duration": 7.8, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 42, "Occupation": "Lawyer", "Sleep_Duration": 7.8, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 42, "Occupation": "Teacher", "Sleep_Duration": 6.8, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 78, "Daily_Steps": 5000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 42, "Occupation": "Teacher", "Sleep_Duration": 6.8, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 78, "Daily_Steps": 5000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 43, "Occupation": "Teacher", "Sleep_Duration": 6.7, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Male", "Age": 43, "Occupation": "Salesperson", "Sleep_Duration": 6.3, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 43, "Occupation": "Teacher", "Sleep_Duration": 6.7, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Male", "Age": 43, "Occupation": "Salesperson", "Sleep_Duration": 6.5, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 43, "Occupation": "Teacher", "Sleep_Duration": 6.7, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Male", "Age": 43, "Occupation": "Salesperson", "Sleep_Duration": 6.4, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Salesperson", "Sleep_Duration": 6.5, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Salesperson", "Sleep_Duration": 6.5, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Salesperson", "Sleep_Duration": 6.5, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Salesperson", "Sleep_Duration": 6.5, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Salesperson", "Sleep_Duration": 6.5, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Salesperson", "Sleep_Duration": 6.5, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Salesperson", "Sleep_Duration": 6.5, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Salesperson", "Sleep_Duration": 6.5, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Salesperson", "Sleep_Duration": 6.5, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Engineer", "Sleep_Duration": 7.8, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Engineer", "Sleep_Duration": 7.8, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Engineer", "Sleep_Duration": 6.9, "Quality_of_Sleep": 6, "Physical_Activity_Level": 47, "Stress_Level": 7, "BMI_Category": "Normal", "Heart_Rate": 69, "Daily_Steps": 6800, "Sleep_Disorder": "None", "Systolic_BP": 117, "Diastolic_BP": 76}, {"Gender": "Male", "Age": 43, "Occupation": "Engineer", "Sleep_Duration": 7.6, "Quality_of_Sleep": 8, "Physical_Activity_Level": 75, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 6800, "Sleep_Disorder": "None", "Systolic_BP": 122, "Diastolic_BP": 80}, {"Gender": "Male", "Age": 43, "Occupation": "Engineer", "Sleep_Duration": 7.7, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Engineer", "Sleep_Duration": 7.7, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Engineer", "Sleep_Duration": 7.7, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Engineer", "Sleep_Duration": 7.7, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Engineer", "Sleep_Duration": 7.8, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Engineer", "Sleep_Duration": 7.7, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Engineer", "Sleep_Duration": 7.8, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Engineer", "Sleep_Duration": 7.8, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Engineer", "Sleep_Duration": 7.8, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Engineer", "Sleep_Duration": 7.8, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Engineer", "Sleep_Duration": 7.8, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Engineer", "Sleep_Duration": 7.8, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Engineer", "Sleep_Duration": 7.8, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Engineer", "Sleep_Duration": 7.8, "Quality_of_Sleep": 8, "Physical_Activity_Level": 90, "Stress_Level": 5, "BMI_Category": "Normal", "Heart_Rate": 70, "Daily_Steps": 8000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 43, "Occupation": "Salesperson", "Sleep_Duration": 6.5, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 44, "Occupation": "Teacher", "Sleep_Duration": 6.6, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Male", "Age": 44, "Occupation": "Salesperson", "Sleep_Duration": 6.4, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 44, "Occupation": "Salesperson", "Sleep_Duration": 6.3, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 44, "Occupation": "Salesperson", "Sleep_Duration": 6.4, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 44, "Occupation": "Teacher", "Sleep_Duration": 6.6, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Male", "Age": 44, "Occupation": "Salesperson", "Sleep_Duration": 6.3, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 44, "Occupation": "Teacher", "Sleep_Duration": 6.6, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Male", "Age": 44, "Occupation": "Salesperson", "Sleep_Duration": 6.3, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 44, "Occupation": "Teacher", "Sleep_Duration": 6.6, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Male", "Age": 44, "Occupation": "Salesperson", "Sleep_Duration": 6.3, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 44, "Occupation": "Teacher", "Sleep_Duration": 6.6, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Male", "Age": 44, "Occupation": "Salesperson", "Sleep_Duration": 6.3, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 44, "Occupation": "Teacher", "Sleep_Duration": 6.6, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Male", "Age": 44, "Occupation": "Salesperson", "Sleep_Duration": 6.3, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 44, "Occupation": "Teacher", "Sleep_Duration": 6.6, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Male", "Age": 44, "Occupation": "Salesperson", "Sleep_Duration": 6.3, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 44, "Occupation": "Salesperson", "Sleep_Duration": 6.4, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 44, "Occupation": "Teacher", "Sleep_Duration": 6.5, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Male", "Age": 44, "Occupation": "Salesperson", "Sleep_Duration": 6.3, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 44, "Occupation": "Salesperson", "Sleep_Duration": 6.4, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 44, "Occupation": "Teacher", "Sleep_Duration": 6.5, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Male", "Age": 44, "Occupation": "Salesperson", "Sleep_Duration": 6.3, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 44, "Occupation": "Salesperson", "Sleep_Duration": 6.4, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 44, "Occupation": "Teacher", "Sleep_Duration": 6.5, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Male", "Age": 44, "Occupation": "Salesperson", "Sleep_Duration": 6.3, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 44, "Occupation": "Teacher", "Sleep_Duration": 6.5, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Male", "Age": 44, "Occupation": "Salesperson", "Sleep_Duration": 6.3, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 44, "Occupation": "Engineer", "Sleep_Duration": 6.8, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 78, "Daily_Steps": 5000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 44, "Occupation": "Salesperson", "Sleep_Duration": 6.4, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Male", "Age": 44, "Occupation": "Salesperson", "Sleep_Duration": 6.5, "Quality_of_Sleep": 6, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "None", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 45, "Occupation": "Teacher", "Sleep_Duration": 6.8, "Quality_of_Sleep": 7, "Physical_Activity_Level": 30, "Stress_Level": 6, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Female", "Age": 45, "Occupation": "Teacher", "Sleep_Duration": 6.8, "Quality_of_Sleep": 7, "Physical_Activity_Level": 30, "Stress_Level": 6, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Female", "Age": 45, "Occupation": "Teacher", "Sleep_Duration": 6.5, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Female", "Age": 45, "Occupation": "Teacher", "Sleep_Duration": 6.5, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Female", "Age": 45, "Occupation": "Teacher", "Sleep_Duration": 6.5, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Female", "Age": 45, "Occupation": "Teacher", "Sleep_Duration": 6.5, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Female", "Age": 45, "Occupation": "Teacher", "Sleep_Duration": 6.6, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Female", "Age": 45, "Occupation": "Teacher", "Sleep_Duration": 6.6, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Female", "Age": 45, "Occupation": "Teacher", "Sleep_Duration": 6.6, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Female", "Age": 45, "Occupation": "Teacher", "Sleep_Duration": 6.6, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Female", "Age": 45, "Occupation": "Teacher", "Sleep_Duration": 6.6, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Female", "Age": 45, "Occupation": "Teacher", "Sleep_Duration": 6.6, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "None", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Female", "Age": 45, "Occupation": "Teacher", "Sleep_Duration": 6.6, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 65, "Daily_Steps": 6000, "Sleep_Disorder": "None", "Systolic_BP": 135, "Diastolic_BP": 90}, {"Gender": "Female", "Age": 45, "Occupation": "Manager", "Sleep_Duration": 6.9, "Quality_of_Sleep": 7, "Physical_Activity_Level": 55, "Stress_Level": 5, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 5500, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 82}, {"Gender": "Male", "Age": 48, "Occupation": "Doctor", "Sleep_Duration": 7.3, "Quality_of_Sleep": 7, "Physical_Activity_Level": 65, "Stress_Level": 5, "BMI_Category": "Obese", "Heart_Rate": 83, "Daily_Steps": 3500, "Sleep_Disorder": "Insomnia", "Systolic_BP": 142, "Diastolic_BP": 92}, {"Gender": "Female", "Age": 48, "Occupation": "Nurse", "Sleep_Duration": 5.9, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Male", "Age": 48, "Occupation": "Doctor", "Sleep_Duration": 7.3, "Quality_of_Sleep": 7, "Physical_Activity_Level": 65, "Stress_Level": 5, "BMI_Category": "Obese", "Heart_Rate": 83, "Daily_Steps": 3500, "Sleep_Disorder": "Insomnia", "Systolic_BP": 142, "Diastolic_BP": 92}, {"Gender": "Female", "Age": 49, "Occupation": "Nurse", "Sleep_Duration": 6.2, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "None", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 49, "Occupation": "Nurse", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 49, "Occupation": "Nurse", "Sleep_Duration": 6.1, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 49, "Occupation": "Nurse", "Sleep_Duration": 6.1, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 49, "Occupation": "Nurse", "Sleep_Duration": 6.1, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 49, "Occupation": "Nurse", "Sleep_Duration": 6.1, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 49, "Occupation": "Nurse", "Sleep_Duration": 6.2, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 49, "Occupation": "Nurse", "Sleep_Duration": 6.2, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 49, "Occupation": "Nurse", "Sleep_Duration": 6.2, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Male", "Age": 49, "Occupation": "Doctor", "Sleep_Duration": 8.1, "Quality_of_Sleep": 9, "Physical_Activity_Level": 85, "Stress_Level": 3, "BMI_Category": "Obese", "Heart_Rate": 86, "Daily_Steps": 3700, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 139, "Diastolic_BP": 91}, {"Gender": "Male", "Age": 49, "Occupation": "Doctor", "Sleep_Duration": 8.1, "Quality_of_Sleep": 9, "Physical_Activity_Level": 85, "Stress_Level": 3, "BMI_Category": "Obese", "Heart_Rate": 86, "Daily_Steps": 3700, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 139, "Diastolic_BP": 91}, {"Gender": "Female", "Age": 50, "Occupation": "Nurse", "Sleep_Duration": 6.1, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 50, "Occupation": "Engineer", "Sleep_Duration": 8.3, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 50, "Occupation": "Nurse", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "None", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 50, "Occupation": "Nurse", "Sleep_Duration": 6.1, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 50, "Occupation": "Nurse", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 50, "Occupation": "Nurse", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 50, "Occupation": "Nurse", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 50, "Occupation": "Nurse", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 50, "Occupation": "Nurse", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 50, "Occupation": "Nurse", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 50, "Occupation": "Nurse", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 50, "Occupation": "Nurse", "Sleep_Duration": 6.1, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 50, "Occupation": "Nurse", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 50, "Occupation": "Nurse", "Sleep_Duration": 6.1, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 50, "Occupation": "Nurse", "Sleep_Duration": 6.1, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 50, "Occupation": "Nurse", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 50, "Occupation": "Nurse", "Sleep_Duration": 6.1, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 50, "Occupation": "Nurse", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 50, "Occupation": "Nurse", "Sleep_Duration": 6.1, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 50, "Occupation": "Nurse", "Sleep_Duration": 6.1, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 51, "Occupation": "Engineer", "Sleep_Duration": 8.5, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 51, "Occupation": "Engineer", "Sleep_Duration": 8.5, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 51, "Occupation": "Engineer", "Sleep_Duration": 8.5, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 51, "Occupation": "Engineer", "Sleep_Duration": 8.5, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 51, "Occupation": "Nurse", "Sleep_Duration": 7.1, "Quality_of_Sleep": 7, "Physical_Activity_Level": 55, "Stress_Level": 6, "BMI_Category": "Normal", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 82}, {"Gender": "Female", "Age": 51, "Occupation": "Nurse", "Sleep_Duration": 6.0, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 51, "Occupation": "Nurse", "Sleep_Duration": 6.1, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 51, "Occupation": "Nurse", "Sleep_Duration": 6.1, "Quality_of_Sleep": 6, "Physical_Activity_Level": 90, "Stress_Level": 8, "BMI_Category": "Overweight", "Heart_Rate": 75, "Daily_Steps": 10000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 52, "Occupation": "Accountant", "Sleep_Duration": 6.5, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 52, "Occupation": "Accountant", "Sleep_Duration": 6.5, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 52, "Occupation": "Accountant", "Sleep_Duration": 6.6, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 52, "Occupation": "Accountant", "Sleep_Duration": 6.6, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 52, "Occupation": "Accountant", "Sleep_Duration": 6.6, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 52, "Occupation": "Accountant", "Sleep_Duration": 6.6, "Quality_of_Sleep": 7, "Physical_Activity_Level": 45, "Stress_Level": 7, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 6000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 130, "Diastolic_BP": 85}, {"Gender": "Female", "Age": 52, "Occupation": "Engineer", "Sleep_Duration": 8.4, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 52, "Occupation": "Engineer", "Sleep_Duration": 8.4, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 52, "Occupation": "Engineer", "Sleep_Duration": 8.4, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 53, "Occupation": "Engineer", "Sleep_Duration": 8.3, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "Insomnia", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 53, "Occupation": "Engineer", "Sleep_Duration": 8.5, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 53, "Occupation": "Engineer", "Sleep_Duration": 8.5, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 53, "Occupation": "Engineer", "Sleep_Duration": 8.4, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 53, "Occupation": "Engineer", "Sleep_Duration": 8.4, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 53, "Occupation": "Engineer", "Sleep_Duration": 8.5, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 53, "Occupation": "Engineer", "Sleep_Duration": 8.4, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 53, "Occupation": "Engineer", "Sleep_Duration": 8.4, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 53, "Occupation": "Engineer", "Sleep_Duration": 8.5, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 53, "Occupation": "Engineer", "Sleep_Duration": 8.3, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 53, "Occupation": "Engineer", "Sleep_Duration": 8.5, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 53, "Occupation": "Engineer", "Sleep_Duration": 8.3, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 53, "Occupation": "Engineer", "Sleep_Duration": 8.5, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 53, "Occupation": "Engineer", "Sleep_Duration": 8.3, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 53, "Occupation": "Engineer", "Sleep_Duration": 8.5, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 53, "Occupation": "Engineer", "Sleep_Duration": 8.5, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 53, "Occupation": "Engineer", "Sleep_Duration": 8.4, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 54, "Occupation": "Engineer", "Sleep_Duration": 8.4, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 54, "Occupation": "Engineer", "Sleep_Duration": 8.4, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 54, "Occupation": "Engineer", "Sleep_Duration": 8.4, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 54, "Occupation": "Engineer", "Sleep_Duration": 8.4, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 54, "Occupation": "Engineer", "Sleep_Duration": 8.4, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 54, "Occupation": "Engineer", "Sleep_Duration": 8.4, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 54, "Occupation": "Engineer", "Sleep_Duration": 8.5, "Quality_of_Sleep": 9, "Physical_Activity_Level": 30, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 5000, "Sleep_Disorder": "None", "Systolic_BP": 125, "Diastolic_BP": 80}, {"Gender": "Female", "Age": 55, "Occupation": "Nurse", "Sleep_Duration": 8.1, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 55, "Occupation": "Nurse", "Sleep_Duration": 8.1, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 4, "BMI_Category": "Overweight", "Heart_Rate": 72, "Daily_Steps": 5000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 56, "Occupation": "Doctor", "Sleep_Duration": 8.2, "Quality_of_Sleep": 9, "Physical_Activity_Level": 90, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 10000, "Sleep_Disorder": "None", "Systolic_BP": 118, "Diastolic_BP": 75}, {"Gender": "Female", "Age": 56, "Occupation": "Doctor", "Sleep_Duration": 8.2, "Quality_of_Sleep": 9, "Physical_Activity_Level": 90, "Stress_Level": 3, "BMI_Category": "Normal", "Heart_Rate": 65, "Daily_Steps": 10000, "Sleep_Disorder": "None", "Systolic_BP": 118, "Diastolic_BP": 75}, {"Gender": "Female", "Age": 57, "Occupation": "Nurse", "Sleep_Duration": 8.1, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 57, "Occupation": "Nurse", "Sleep_Duration": 8.2, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 57, "Occupation": "Nurse", "Sleep_Duration": 8.2, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 57, "Occupation": "Nurse", "Sleep_Duration": 8.2, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 57, "Occupation": "Nurse", "Sleep_Duration": 8.2, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 57, "Occupation": "Nurse", "Sleep_Duration": 8.2, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 57, "Occupation": "Nurse", "Sleep_Duration": 8.1, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 57, "Occupation": "Nurse", "Sleep_Duration": 8.1, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 57, "Occupation": "Nurse", "Sleep_Duration": 8.1, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 58, "Occupation": "Nurse", "Sleep_Duration": 8.0, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 58, "Occupation": "Nurse", "Sleep_Duration": 8.0, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 58, "Occupation": "Nurse", "Sleep_Duration": 8.0, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 58, "Occupation": "Nurse", "Sleep_Duration": 8.0, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 58, "Occupation": "Nurse", "Sleep_Duration": 8.0, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 58, "Occupation": "Nurse", "Sleep_Duration": 8.0, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 59, "Occupation": "Nurse", "Sleep_Duration": 8.0, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 59, "Occupation": "Nurse", "Sleep_Duration": 8.1, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "None", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 59, "Occupation": "Nurse", "Sleep_Duration": 8.2, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 59, "Occupation": "Nurse", "Sleep_Duration": 8.2, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 59, "Occupation": "Nurse", "Sleep_Duration": 8.2, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 59, "Occupation": "Nurse", "Sleep_Duration": 8.2, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 59, "Occupation": "Nurse", "Sleep_Duration": 8.0, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 59, "Occupation": "Nurse", "Sleep_Duration": 8.0, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 59, "Occupation": "Nurse", "Sleep_Duration": 8.1, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 59, "Occupation": "Nurse", "Sleep_Duration": 8.0, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 59, "Occupation": "Nurse", "Sleep_Duration": 8.1, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 59, "Occupation": "Nurse", "Sleep_Duration": 8.1, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 59, "Occupation": "Nurse", "Sleep_Duration": 8.0, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 59, "Occupation": "Nurse", "Sleep_Duration": 8.1, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 59, "Occupation": "Nurse", "Sleep_Duration": 8.1, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}, {"Gender": "Female", "Age": 59, "Occupation": "Nurse", "Sleep_Duration": 8.1, "Quality_of_Sleep": 9, "Physical_Activity_Level": 75, "Stress_Level": 3, "BMI_Category": "Overweight", "Heart_Rate": 68, "Daily_Steps": 7000, "Sleep_Disorder": "Sleep Apnea", "Systolic_BP": 140, "Diastolic_BP": 95}];
+</script>
+<script>
+const COLORS = { None: '#5EC8A8', Insomnia: '#F0AD4E', 'Sleep Apnea': '#E2685A' };
+const ORDER = ['None', 'Insomnia', 'Sleep Apnea'];
+const TEXT_MUTED = '#8993B3';
+const TEXT = '#EAEEF8';
+const BORDER = '#283152';
+const ACCENT = '#7C9EFF';
+const SANS = "-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+
+// ================= tiny canvas chart library (no external deps) =================
+
+function initCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const cssWidth = canvas.parentElement.clientWidth;
+  const cssHeight = parseInt(canvas.getAttribute('height'), 10) || 220;
+  canvas.style.width = cssWidth + 'px';
+  canvas.style.height = cssHeight + 'px';
+  canvas.width = Math.max(1, Math.round(cssWidth * dpr));
+  canvas.height = Math.max(1, Math.round(cssHeight * dpr));
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w: cssWidth, h: cssHeight };
+}
+
+let tooltipEl;
+function ensureTooltip() {
+  if (!tooltipEl) {
+    tooltipEl = document.createElement('div');
+    Object.assign(tooltipEl.style, {
+      position: 'fixed', pointerEvents: 'none', background: '#1B2540',
+      border: '1px solid ' + BORDER, color: TEXT, padding: '6px 11px',
+      borderRadius: '7px', fontSize: '12.5px', fontFamily: SANS,
+      zIndex: 999, display: 'none', boxShadow: '0 6px 18px rgba(0,0,0,0.35)'
+    });
+    document.body.appendChild(tooltipEl);
+  }
+  return tooltipEl;
+}
+function showTooltip(x, y, text) {
+  const t = ensureTooltip();
+  t.textContent = text;
+  t.style.left = (x + 16) + 'px';
+  t.style.top = (y + 16) + 'px';
+  t.style.display = 'block';
+}
+function hideTooltip() { if (tooltipEl) tooltipEl.style.display = 'none'; }
+
+function renderLegend(id, items) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = '';
+  items.forEach(it => {
+    const d = document.createElement('div');
+    d.className = 'legend-item';
+    d.innerHTML = `<span class="legend-swatch" style="background:${it.color}"></span>${it.name}`;
+    el.appendChild(d);
+  });
+}
+
+function niceMax(v) {
+  if (v <= 0) return 1;
+  const mag = Math.pow(10, Math.floor(Math.log10(v)));
+  const norm = v / mag;
+  let n;
+  if (norm <= 1) n = 1; else if (norm <= 2) n = 2; else if (norm <= 5) n = 5; else n = 10;
+  return n * mag;
+}
+
+function roundTo(v, dp) {
+  const f = Math.pow(10, dp);
+  return Math.round(v * f) / f;
+}
+
+// ---- bar chart: vertical or horizontal, stacked or grouped ----
+function drawBars(canvas, opts) {
+  const { labels, series, horizontal = false, stacked = false, legendId, xUnit = '' } = opts;
+  const { ctx, w, h } = initCanvas(canvas);
+  ctx.clearRect(0, 0, w, h);
+
+  const marginTop = 12;
+  const marginBottom = horizontal ? 30 : 34;
+  const marginLeft = horizontal ? 118 : 40;
+  const marginRight = 14;
+  const plotW = w - marginLeft - marginRight;
+  const plotH = h - marginTop - marginBottom;
+
+  let maxVal;
+  if (stacked) {
+    maxVal = Math.max(1, ...labels.map((_, i) => series.reduce((s, se) => s + se.values[i], 0)));
+  } else {
+    maxVal = Math.max(1, ...series.flatMap(se => se.values));
+  }
+  maxVal = niceMax(maxVal);
+
+  const n = labels.length;
+  ctx.lineWidth = 1;
+  ctx.font = '11px ' + SANS;
+
+  const hitboxes = [];
+
+  if (!horizontal) {
+    const slot = plotW / n;
+    const barW = stacked ? slot * 0.6 : (slot * 0.72) / series.length;
+    const ticks = 4;
+    for (let t = 0; t <= ticks; t++) {
+      const val = maxVal * t / ticks;
+      const y = marginTop + plotH - (val / maxVal) * plotH;
+      ctx.strokeStyle = BORDER;
+      ctx.beginPath(); ctx.moveTo(marginLeft, y); ctx.lineTo(marginLeft + plotW, y); ctx.stroke();
+      ctx.fillStyle = TEXT_MUTED; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      ctx.fillText(roundTo(val, 0), marginLeft - 8, y);
+    }
+    labels.forEach((lab, i) => {
+      const slotX = marginLeft + i * slot;
+      if (stacked) {
+        let stackY = marginTop + plotH;
+        const bx = slotX + (slot - barW) / 2;
+        series.forEach(se => {
+          const val = se.values[i];
+          const bh = (val / maxVal) * plotH;
+          const by = stackY - bh;
+          ctx.fillStyle = se.color;
+          ctx.fillRect(bx, by, barW, bh);
+          if (bh > 0.5) hitboxes.push({ x: bx, y: by, w: barW, h: bh, text: `${lab} \u00b7 ${se.name}: ${val}` });
+          stackY -= bh;
+        });
+      } else {
+        series.forEach((se, si) => {
+          const val = se.values[i];
+          const bh = (val / maxVal) * plotH;
+          const bx = slotX + (slot - barW * series.length) / 2 + si * barW;
+          const by = marginTop + plotH - bh;
+          ctx.fillStyle = se.color;
+          ctx.fillRect(bx, by, barW * 0.9, bh);
+          if (bh > 0.5) hitboxes.push({ x: bx, y: by, w: barW * 0.9, h: bh, text: `${lab} \u00b7 ${se.name}: ${val}${xUnit}` });
+        });
+      }
+      ctx.fillStyle = TEXT_MUTED; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(lab, slotX + slot / 2, marginTop + plotH + 8);
+    });
+  } else {
+    const slot = plotH / n;
+    const barH = stacked ? slot * 0.62 : (slot * 0.72) / series.length;
+    const ticks = 4;
+    for (let t = 0; t <= ticks; t++) {
+      const val = maxVal * t / ticks;
+      const x = marginLeft + (val / maxVal) * plotW;
+      ctx.strokeStyle = BORDER;
+      ctx.beginPath(); ctx.moveTo(x, marginTop); ctx.lineTo(x, marginTop + plotH); ctx.stroke();
+      ctx.fillStyle = TEXT_MUTED; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(roundTo(val, val < 2 ? 2 : 0), x, marginTop + plotH + 6);
+    }
+    labels.forEach((lab, i) => {
+      const slotY = marginTop + i * slot;
+      if (stacked) {
+        let stackX = marginLeft;
+        const by = slotY + (slot - barH) / 2;
+        series.forEach(se => {
+          const val = se.values[i];
+          const bw = (val / maxVal) * plotW;
+          ctx.fillStyle = se.color;
+          ctx.fillRect(stackX, by, bw, barH);
+          if (bw > 0.5) hitboxes.push({ x: stackX, y: by, w: bw, h: barH, text: `${lab} \u00b7 ${se.name}: ${val}` });
+          stackX += bw;
+        });
+      } else {
+        series.forEach((se, si) => {
+          const val = se.values[i];
+          const bw = (val / maxVal) * plotW;
+          const by = slotY + (slot - barH * series.length) / 2 + si * barH;
+          ctx.fillStyle = se.color;
+          ctx.fillRect(marginLeft, by, bw, barH * 0.9);
+          if (bw > 0.5) hitboxes.push({ x: marginLeft, y: by, w: bw, h: barH * 0.9, text: `${lab} \u00b7 ${se.name}: ${val}${xUnit}` });
+        });
+      }
+      ctx.fillStyle = TEXT; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      ctx.font = '11.5px ' + SANS;
+      const disp = lab.length > 15 ? lab.slice(0, 14) + '\u2026' : lab;
+      ctx.fillText(disp, marginLeft - 8, slotY + slot / 2);
+      ctx.font = '11px ' + SANS;
+    });
+  }
+
+  canvas.onmousemove = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const hit = hitboxes.find(b => mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h);
+    if (hit) { showTooltip(e.clientX, e.clientY, hit.text); canvas.style.cursor = 'pointer'; }
+    else { hideTooltip(); canvas.style.cursor = 'default'; }
+  };
+  canvas.onmouseleave = hideTooltip;
+
+  if (legendId) renderLegend(legendId, series.map(s => ({ name: s.name, color: s.color })));
+}
+
+// ---- donut chart ----
+function drawDonut(canvas, opts) {
+  const { labels, colors, values, legendId, centerLabel = 'patients' } = opts;
+  const { ctx, w, h } = initCanvas(canvas);
+  ctx.clearRect(0, 0, w, h);
+  const cx = w / 2, cy = h / 2;
+  const rOuter = Math.min(w, h) / 2 - 12;
+  const rInner = rOuter * 0.6;
+  const total = values.reduce((a, b) => a + b, 0) || 1;
+
+  let angle = -Math.PI / 2;
+  const arcs = [];
+  labels.forEach((lab, i) => {
+    const val = values[i];
+    const frac = val / total;
+    const start = angle, end = angle + frac * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, rOuter, start, end);
+    ctx.closePath();
+    ctx.fillStyle = colors[i];
+    ctx.fill();
+    arcs.push({ start, end, label: lab, value: val, pct: Math.round(frac * 100) });
+    angle = end;
+  });
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.beginPath(); ctx.arc(cx, cy, rInner, 0, Math.PI * 2); ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+
+  ctx.fillStyle = TEXT; ctx.font = '600 22px ' + SANS;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(total, cx, cy - 8);
+  ctx.font = '11px ' + SANS; ctx.fillStyle = TEXT_MUTED;
+  ctx.fillText(centerLabel, cx, cy + 12);
+
+  canvas.onmousemove = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left - cx, my = e.clientY - rect.top - cy;
+    const dist = Math.sqrt(mx * mx + my * my);
+    if (dist < rInner || dist > rOuter) { hideTooltip(); canvas.style.cursor = 'default'; return; }
+    let a = Math.atan2(my, mx);
+    if (a < -Math.PI / 2) a += Math.PI * 2;
+    const hit = arcs.find(x => a >= x.start && a < x.end);
+    if (hit) { showTooltip(e.clientX, e.clientY, `${hit.label}: ${hit.value} (${hit.pct}%)`); canvas.style.cursor = 'pointer'; }
+    else hideTooltip();
+  };
+  canvas.onmouseleave = hideTooltip;
+
+  if (legendId) renderLegend(legendId, labels.map((l, i) => ({ name: l, color: colors[i] })));
+}
+
+// ---- scatter / bubble chart ----
+function drawScatter(canvas, opts) {
+  const { series, xTitle, yTitle, legendId, bubble = false, xUnit = '', yUnit = '' } = opts;
+  const { ctx, w, h } = initCanvas(canvas);
+  ctx.clearRect(0, 0, w, h);
+
+  const marginTop = 12, marginBottom = 38, marginLeft = 50, marginRight = 14;
+  const plotW = w - marginLeft - marginRight, plotH = h - marginTop - marginBottom;
+
+  const allPts = series.flatMap(s => s.points);
+  let xmin = Math.min(...allPts.map(p => p.x)), xmax = Math.max(...allPts.map(p => p.x));
+  let ymin = Math.min(...allPts.map(p => p.y)), ymax = Math.max(...allPts.map(p => p.y));
+  const xpad = (xmax - xmin) * 0.1 || 1, ypad = (ymax - ymin) * 0.15 || 1;
+  xmin -= xpad; xmax += xpad; ymin -= ypad; ymax += ypad;
+
+  const xScale = v => marginLeft + (v - xmin) / (xmax - xmin) * plotW;
+  const yScale = v => marginTop + plotH - (v - ymin) / (ymax - ymin) * plotH;
+
+  ctx.font = '11px ' + SANS;
+  const yticks = 4, xticks = 4;
+  for (let t = 0; t <= yticks; t++) {
+    const val = ymin + (ymax - ymin) * t / yticks;
+    const y = yScale(val);
+    ctx.strokeStyle = BORDER;
+    ctx.beginPath(); ctx.moveTo(marginLeft, y); ctx.lineTo(marginLeft + plotW, y); ctx.stroke();
+    ctx.fillStyle = TEXT_MUTED; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillText(roundTo(val, 1), marginLeft - 8, y);
+  }
+  for (let t = 0; t <= xticks; t++) {
+    const val = xmin + (xmax - xmin) * t / xticks;
+    const x = xScale(val);
+    ctx.fillStyle = TEXT_MUTED; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(roundTo(val, 1), x, marginTop + plotH + 6);
+  }
+  if (xTitle) {
+    ctx.fillStyle = TEXT_MUTED; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(xTitle, marginLeft + plotW / 2, h - 4);
+  }
+  if (yTitle) {
+    ctx.save();
+    ctx.translate(12, marginTop + plotH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = TEXT_MUTED; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(yTitle, 0, 0);
+    ctx.restore();
+  }
+
+  const hitpoints = [];
+  series.forEach(s => {
+    ctx.fillStyle = s.color;
+    s.points.forEach(p => {
+      const cx = xScale(p.x), cy = yScale(p.y);
+      const r = bubble ? (3 + (p.r || 3)) : 4.2;
+      ctx.globalAlpha = 0.82;
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+      hitpoints.push({ cx, cy, r: r + 3, name: s.name, x: p.x, y: p.y });
+    });
+  });
+
+  canvas.onmousemove = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    let hit = null, best = Infinity;
+    hitpoints.forEach(pt => {
+      const d = Math.hypot(mx - pt.cx, my - pt.cy);
+      if (d <= pt.r && d < best) { best = d; hit = pt; }
+    });
+    if (hit) { showTooltip(e.clientX, e.clientY, `${hit.name}: ${hit.x}${xUnit}, ${hit.y}${yUnit}`); canvas.style.cursor = 'pointer'; }
+    else { hideTooltip(); canvas.style.cursor = 'default'; }
+  };
+  canvas.onmouseleave = hideTooltip;
+
+  if (legendId) renderLegend(legendId, series.map(s => ({ name: s.name, color: s.color })));
+}
+
+// ================= dashboard state & data wiring =================
+
+const state = {
+  disorder: new Set(ORDER),
+  gender: new Set(['Male', 'Female']),
+  bmi: new Set([...new Set(RAW.map(r => r.BMI_Category))]),
+  ageMin: 27,
+  ageMax: 59,
+};
+
+function filtered() {
+  return RAW.filter(r =>
+    state.disorder.has(r.Sleep_Disorder) &&
+    state.gender.has(r.Gender) &&
+    state.bmi.has(r.BMI_Category) &&
+    r.Age >= state.ageMin && r.Age <= state.ageMax
+  );
+}
+
+function buildChips(containerId, values, activeSet, colorClassFn) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  values.forEach(v => {
+    const chip = document.createElement('div');
+    chip.className = 'chip' + (activeSet.has(v) ? ' active' : '') + (colorClassFn ? ' ' + colorClassFn(v) : '');
+    chip.textContent = v;
+    chip.onclick = () => {
+      if (activeSet.has(v)) { activeSet.delete(v); } else { activeSet.add(v); }
+      if (activeSet.size === 0) { values.forEach(x => activeSet.add(x)); }
+      buildChips(containerId, values, activeSet, colorClassFn);
+      renderAll();
+    };
+    el.appendChild(chip);
+  });
+}
+
+function colorClassForDisorder(v) {
+  if (v === 'None') return 'none-c';
+  if (v === 'Insomnia') return 'insomnia-c';
+  if (v === 'Sleep Apnea') return 'apnea-c';
+  return '';
+}
+
+const bmiValues = [...new Set(RAW.map(r => r.BMI_Category))];
+
+buildChips('chips-disorder', ORDER, state.disorder, colorClassForDisorder);
+buildChips('chips-gender', ['Male', 'Female'], state.gender);
+buildChips('chips-bmi', bmiValues, state.bmi);
+
+document.getElementById('reset-btn').onclick = () => {
+  state.disorder = new Set(ORDER);
+  state.gender = new Set(['Male', 'Female']);
+  state.bmi = new Set(bmiValues);
+  state.ageMin = 27; state.ageMax = 59;
+  document.getElementById('age-min').value = 27;
+  document.getElementById('age-max').value = 59;
+  buildChips('chips-disorder', ORDER, state.disorder, colorClassForDisorder);
+  buildChips('chips-gender', ['Male', 'Female'], state.gender);
+  buildChips('chips-bmi', bmiValues, state.bmi);
+  updateAgeLabel();
+  renderAll();
+};
+
+const ageMinInput = document.getElementById('age-min');
+const ageMaxInput = document.getElementById('age-max');
+function updateAgeLabel() {
+  if (state.ageMin > state.ageMax) { const t = state.ageMin; state.ageMin = state.ageMax; state.ageMax = t; }
+  document.getElementById('age-val').textContent = state.ageMin + '\u2013' + state.ageMax;
+}
+ageMinInput.oninput = () => { state.ageMin = +ageMinInput.value; updateAgeLabel(); renderAll(); };
+ageMaxInput.oninput = () => { state.ageMax = +ageMaxInput.value; updateAgeLabel(); renderAll(); };
+updateAgeLabel();
+
+function renderKPIs(data) {
+  const total = data.length;
+  const withDisorder = data.filter(r => r.Sleep_Disorder !== 'None').length;
+  const avgSys = total ? Math.round(data.reduce((s, r) => s + r.Systolic_BP, 0) / total) : '\u2014';
+  const avgDia = total ? Math.round(data.reduce((s, r) => s + r.Diastolic_BP, 0) / total) : '\u2014';
+  const avgStress = total ? roundTo(data.reduce((s, r) => s + r.Stress_Level, 0) / total, 1) : '\u2014';
+
+  const kpis = [
+    { label: 'Patients in view', value: total, sub: 'of 374 total' },
+    { label: 'With a sleep disorder', value: total ? Math.round(withDisorder / total * 100) + '%' : '\u2014', sub: withDisorder + ' patients' },
+    { label: 'Avg. blood pressure', value: avgSys + '/' + avgDia, sub: 'systolic / diastolic, mmHg' },
+    { label: 'Avg. stress level', value: avgStress, sub: 'on a 1-8 scale' },
+  ];
+  const row = document.getElementById('kpi-row');
+  row.innerHTML = '';
+  kpis.forEach(k => {
+    const d = document.createElement('div');
+    d.className = 'kpi';
+    d.innerHTML = `<div class="label">${k.label}</div><div class="value">${k.value}</div><div class="sub">${k.sub}</div>`;
+    row.appendChild(d);
+  });
+}
+
+function renderDonut(data) {
+  const values = ORDER.map(d => data.filter(r => r.Sleep_Disorder === d).length);
+  drawDonut(document.getElementById('chart-donut'), {
+    labels: ORDER, colors: ORDER.map(d => COLORS[d]), values, legendId: 'legend-donut'
+  });
+}
+
+function renderBMI(data) {
+  const cats = bmiValues;
+  const series = ORDER.map(d => ({
+    name: d, color: COLORS[d],
+    values: cats.map(c => data.filter(r => r.BMI_Category === c && r.Sleep_Disorder === d).length)
+  }));
+  drawBars(document.getElementById('chart-bmi'), { labels: cats, series, stacked: true, legendId: 'legend-bmi' });
+}
+
+function renderAge(data) {
+  const bins = [];
+  for (let lo = 25; lo < 60; lo += 5) bins.push([lo, lo + 5]);
+  const labels = bins.map(([lo, hi]) => `${lo}-${hi - 1}`);
+  const series = ORDER.map(d => ({
+    name: d, color: COLORS[d],
+    values: bins.map(([lo, hi]) => data.filter(r => r.Sleep_Disorder === d && r.Age >= lo && r.Age < hi).length)
+  }));
+  drawBars(document.getElementById('chart-age'), { labels, series, stacked: true, legendId: 'legend-age' });
+}
+
+function renderBP(data) {
+  const series = ORDER.map(d => ({
+    name: d, color: COLORS[d],
+    points: data.filter(r => r.Sleep_Disorder === d).map(r => ({ x: r.Systolic_BP, y: r.Diastolic_BP }))
+  }));
+  drawScatter(document.getElementById('chart-bp'), {
+    series, xTitle: 'Systolic (mmHg)', yTitle: 'Diastolic (mmHg)', legendId: 'legend-bp', xUnit: '', yUnit: ''
+  });
+}
+
+function renderOcc(data) {
+  const counts = new Map();
+  data.forEach(r => counts.set(r.Occupation, (counts.get(r.Occupation) || 0) + 1));
+  const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(e => e[0]);
+  const series = ORDER.map(d => ({
+    name: d, color: COLORS[d],
+    values: top.map(o => data.filter(r => r.Occupation === o && r.Sleep_Disorder === d).length)
+  }));
+  drawBars(document.getElementById('chart-occ'), { labels: top, series, horizontal: true, stacked: true, legendId: 'legend-occ' });
+}
+
+function renderSleep(data) {
+  const series = ORDER.map(d => ({
+    name: d, color: COLORS[d],
+    points: data.filter(r => r.Sleep_Disorder === d).map(r => ({ x: r.Sleep_Duration, y: r.Quality_of_Sleep, r: r.Stress_Level }))
+  }));
+  drawScatter(document.getElementById('chart-sleep'), {
+    series, xTitle: 'Sleep duration (hours)', yTitle: 'Quality of sleep (1-9)', legendId: 'legend-sleep',
+    bubble: true, xUnit: 'h', yUnit: '/9'
+  });
+}
+
+function renderActivity(data) {
+  const occs = [...new Set(data.map(r => r.Occupation))];
+  const avgActivity = occs.map(o => {
+    const rows = data.filter(r => r.Occupation === o);
+    return roundTo(rows.reduce((s, r) => s + r.Physical_Activity_Level, 0) / rows.length, 1);
+  });
+  const avgStress = occs.map(o => {
+    const rows = data.filter(r => r.Occupation === o);
+    return roundTo(rows.reduce((s, r) => s + r.Stress_Level, 0) / rows.length, 1);
+  });
+  const idx = occs.map((_, i) => i).sort((a, b) => avgActivity[b] - avgActivity[a]);
+  const labels = idx.map(i => occs[i]);
+  const series = [
+    { name: 'Avg. physical activity (min/day)', color: ACCENT, values: idx.map(i => avgActivity[i]) },
+    { name: 'Avg. stress level (x10, for scale)', color: COLORS.Insomnia, values: idx.map(i => roundTo(avgStress[i] * 10, 1)) },
+  ];
+  drawBars(document.getElementById('chart-activity'), { labels, series, horizontal: true, stacked: false, legendId: 'legend-activity' });
+}
+
+function renderAssociation() {
+  const stats = [
+    ['Diastolic BP', 211.5], ['Systolic BP', 205.5], ['Age', 84.8],
+    ['Physical Activity', 70.4], ['Quality of Sleep', 49.2], ['Sleep Duration', 43.9],
+    ['Daily Steps', 38.8], ['Heart Rate', 37.3], ['Stress Level', 10.0]
+  ];
+  drawBars(document.getElementById('chart-assoc'), {
+    labels: stats.map(s => s[0]),
+    series: [{ name: 'Kruskal-Wallis H', color: ACCENT, values: stats.map(s => s[1]) }],
+    horizontal: true
+  });
+}
+
+function renderImportance() {
+  const imp = [
+    ['Systolic BP', 0.161], ['BMI: Overweight', 0.145], ['Diastolic BP', 0.140],
+    ['Sleep Duration', 0.096], ['Age', 0.085], ['Occupation: Nurse', 0.078],
+    ['Physical Activity', 0.055], ['Heart Rate', 0.054], ['Daily Steps', 0.053],
+    ['Stress Level', 0.033]
+  ];
+  drawBars(document.getElementById('chart-importance'), {
+    labels: imp.map(s => s[0]),
+    series: [{ name: 'Importance', color: COLORS.None, values: imp.map(s => s[1]) }],
+    horizontal: true
+  });
+}
+
+function renderConfusion() {
+  const labels = ['Insomnia', 'None', 'Sleep Apnea'];
+  const cm = [[13, 0, 2], [0, 44, 0], [3, 0, 13]];
+  const table = document.getElementById('cm-table');
+  let html = '<tr><th></th>' + labels.map(l => `<th>${l}</th>`).join('') + '</tr>';
+  cm.forEach((row, i) => {
+    html += `<tr><th>${labels[i]}</th>` + row.map((v, j) => {
+      const isDiag = i === j;
+      const bg = isDiag ? 'rgba(94,200,168,0.18)' : (v > 0 ? 'rgba(226,104,90,0.14)' : 'transparent');
+      return `<td class="${isDiag ? 'diag' : ''}" style="background:${bg}">${v}</td>`;
+    }).join('') + '</tr>';
+  });
+  table.innerHTML = html;
+}
+
+function renderAll() {
+  const data = filtered();
+  renderKPIs(data);
+  renderDonut(data);
+  renderBMI(data);
+  renderAge(data);
+  renderBP(data);
+  renderOcc(data);
+  renderSleep(data);
+  renderActivity(data);
+}
+
+function renderStatic() {
+  renderAssociation();
+  renderImportance();
+  renderConfusion();
+}
+
+renderAll();
+renderStatic();
+
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { renderAll(); renderStatic(); }, 120);
+});
+
+</script>
+</body>
+</html>
